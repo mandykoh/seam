@@ -49,28 +49,28 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 		}
 	}
 
-	for seamCount := 0; seamCount < seamsToRemove; seamCount++ {
-
-		// Calculate accumulated energies
+	// Calculate accumulated energies
+	for j := 0; j < resultBounds.Dx(); j++ {
+		accumulatedEnergies[j] = energies[j]
+	}
+	for i := 1; i < resultBounds.Dy(); i++ {
 		for j := 0; j < resultBounds.Dx(); j++ {
-			accumulatedEnergies[j] = energies[j]
-		}
-		for i := 1; i < resultBounds.Dy(); i++ {
-			for j := 0; j < resultBounds.Dx(); j++ {
-				offset := i*energyWidth + j
-				northOffset := offset - energyWidth
+			offset := i*energyWidth + j
+			northOffset := offset - energyWidth
 
-				minE := accumulatedEnergies[northOffset]
-				if j > 0 && accumulatedEnergies[northOffset-1] < minE {
-					minE = accumulatedEnergies[northOffset-1]
-				}
-				if j < resultBounds.Dx()-1 && accumulatedEnergies[northOffset+1] < minE {
-					minE = accumulatedEnergies[northOffset+1]
-				}
-
-				accumulatedEnergies[offset] = energies[offset] + minE
+			minE := accumulatedEnergies[northOffset]
+			if j > 0 && accumulatedEnergies[northOffset-1] < minE {
+				minE = accumulatedEnergies[northOffset-1]
 			}
+			if j < resultBounds.Dx()-1 && accumulatedEnergies[northOffset+1] < minE {
+				minE = accumulatedEnergies[northOffset+1]
+			}
+
+			accumulatedEnergies[offset] = energies[offset] + minE
 		}
+	}
+
+	for seamCount := 0; seamCount < seamsToRemove; seamCount++ {
 
 		// Find beginning of optimal seam
 		rowOffset := (resultBounds.Dy() - 1) * energyWidth
@@ -121,6 +121,36 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 			}
 			if j > 0 {
 				energies[i*energyWidth+j-1] = energy(resultImg, j-1, i)
+			}
+		}
+
+		// Update the accumulated energies propagating from the seam
+		for j := seamPositions[0]; j < resultBounds.Dx(); j++ {
+			accumulatedEnergies[j] = energies[j]
+		}
+		for i := 1; i < resultBounds.Dy(); i++ {
+			lowBound := seamPositions[0] - i
+			if lowBound < 0 {
+				lowBound = 0
+			}
+			highBound := seamPositions[0] + i
+			if highBound > resultBounds.Dx()-1 {
+				highBound = resultBounds.Dx() - 1
+			}
+
+			for j := lowBound; j <= highBound; j++ {
+				offset := i*energyWidth + j
+				northOffset := offset - energyWidth
+
+				minE := accumulatedEnergies[northOffset]
+				if j > 0 && accumulatedEnergies[northOffset-1] < minE {
+					minE = accumulatedEnergies[northOffset-1]
+				}
+				if j < resultBounds.Dx()-1 && accumulatedEnergies[northOffset+1] < minE {
+					minE = accumulatedEnergies[northOffset+1]
+				}
+
+				accumulatedEnergies[offset] = energies[offset] + minE
 			}
 		}
 	}
