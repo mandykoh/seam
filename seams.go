@@ -52,11 +52,11 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 	for seamCount := 0; seamCount < seamsToRemove; seamCount++ {
 
 		// Calculate accumulated energies
-		for j := 0; j < imgBounds.Dx(); j++ {
+		for j := 0; j < resultBounds.Dx(); j++ {
 			accumulatedEnergies[j] = energies[j]
 		}
-		for i := 1; i < imgBounds.Dy(); i++ {
-			for j := 0; j < imgBounds.Dx(); j++ {
+		for i := 1; i < resultBounds.Dy(); i++ {
+			for j := 0; j < resultBounds.Dx(); j++ {
 				offset := i*energyWidth + j
 				northOffset := offset - energyWidth
 
@@ -64,7 +64,7 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 				if j > 0 && accumulatedEnergies[northOffset-1] < minE {
 					minE = accumulatedEnergies[northOffset-1]
 				}
-				if j < imgBounds.Dx()-1 && accumulatedEnergies[northOffset+1] < minE {
+				if j < resultBounds.Dx()-1 && accumulatedEnergies[northOffset+1] < minE {
 					minE = accumulatedEnergies[northOffset+1]
 				}
 
@@ -73,20 +73,20 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 		}
 
 		// Find beginning of optimal seam
-		rowOffset := (imgBounds.Dy() - 1) * energyWidth
+		rowOffset := (resultBounds.Dy() - 1) * energyWidth
 		seamMinE := accumulatedEnergies[rowOffset]
 		seamX := 0
-		for j := 1; j < imgBounds.Dx(); j++ {
+		for j := 1; j < resultBounds.Dx(); j++ {
 			energy := accumulatedEnergies[rowOffset+j]
 			if energy < seamMinE {
 				seamMinE = energy
 				seamX = j
 			}
 		}
-		seamPositions[imgBounds.Dy()-1] = seamX
+		seamPositions[resultBounds.Dy()-1] = seamX
 
 		// Trace seam upwards
-		for i := imgBounds.Dy() - 2; i >= 0; i-- {
+		for i := resultBounds.Dy() - 2; i >= 0; i-- {
 			prevRow := i*energyWidth + seamX
 
 			minE := accumulatedEnergies[prevRow]
@@ -94,7 +94,7 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 				minE = accumulatedEnergies[prevRow-1]
 				seamX--
 			}
-			if seamX < imgBounds.Dx()-1 && accumulatedEnergies[prevRow+1] < minE {
+			if seamX < resultBounds.Dx()-1 && accumulatedEnergies[prevRow+1] < minE {
 				minE = accumulatedEnergies[prevRow+1]
 				seamX++
 			}
