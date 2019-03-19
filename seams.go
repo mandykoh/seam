@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-func energy(img image.Image, x, y int) float32 {
+func energy(img *image.RGBA, x, y int) float32 {
 	neighbours := [8]float32{
 		luminance(img, x-1, y-1),
 		luminance(img, x, y-1),
@@ -24,15 +24,15 @@ func energy(img image.Image, x, y int) float32 {
 	return float32(math.Abs(float64(eX)) + math.Abs(float64(eY)))
 }
 
-func luminance(img image.Image, x, y int) float32 {
-	r, g, b, _ := img.At(x, y).RGBA()
-	return 0.2126*float32(r)/0xffff + 0.7152*float32(g)/0xffff + 0.0722*float32(b)/0xffff
+func luminance(img *image.RGBA, x, y int) float32 {
+	c := img.RGBAAt(x, y)
+	return 0.2126*float32(c.R) + 0.7152*float32(c.G) + 0.0722*float32(c.B)
 }
 
 func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 	imgBounds := img.Bounds()
 
-	resultImg := image.NewNRGBA(image.Rect(0, 0, imgBounds.Dx(), imgBounds.Dy()))
+	resultImg := image.NewRGBA(image.Rect(0, 0, imgBounds.Dx(), imgBounds.Dy()))
 	resultBounds := resultImg.Bounds()
 	draw.Draw(resultImg, resultBounds, img, image.Pt(0, 0), draw.Src)
 
@@ -45,12 +45,11 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 	for i := imgBounds.Min.Y; i < imgBounds.Max.Y; i++ {
 		for j := imgBounds.Min.X; j < imgBounds.Max.X; j++ {
 			offset := (i-imgBounds.Min.Y)*energyWidth + (j - imgBounds.Min.X)
-			energies[offset] = energy(img, j, i)
+			energies[offset] = energy(resultImg, j, i)
 		}
 	}
 
 	for seamCount := 0; seamCount < seamsToRemove; seamCount++ {
-		resultBounds.Max.X--
 
 		// Calculate accumulated energies
 		for j := 0; j < imgBounds.Dx(); j++ {
@@ -103,32 +102,28 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 			seamPositions[i] = seamX
 		}
 
+		resultBounds.Max.X--
+
 		// Shift row segments over the seam
 		for i := 0; i < imgBounds.Dy(); i++ {
 			for j := seamPositions[i]; j < resultBounds.Max.X; j++ {
-				resultImg.Set(j, i, img.At(imgBounds.Min.X+j+1, imgBounds.Min.Y+i))
+				resultImg.SetRGBA(j, i, resultImg.RGBAAt(imgBounds.Min.X+j+1, imgBounds.Min.Y+i))
 				energies[i*energyWidth+j] = energies[i*energyWidth+j+1]
 			}
 		}
 
-		img = resultImg
-		imgBounds = img.Bounds()
-
 		// Update energies along seam
-		for i := 0; i < imgBounds.Dy(); i++ {
+		for i := 0; i < resultBounds.Dy(); i++ {
 			j := seamPositions[i]
 
-			if j < imgBounds.Dx() {
-				energies[i*energyWidth+j] = energy(img, j, i)
+			if j < resultBounds.Dx() {
+				energies[i*energyWidth+j] = energy(resultImg, j, i)
 			}
 			if j > 0 {
-				energies[i*energyWidth+j-1] = energy(img, j-1, i)
+				energies[i*energyWidth+j-1] = energy(resultImg, j-1, i)
 			}
 		}
 	}
 
-	croppedResult := image.NewNRGBA(image.Rect(0, 0, resultBounds.Dx(), resultBounds.Dy()))
-	draw.Draw(croppedResult, croppedResult.Bounds(), resultImg, image.Pt(0, 0), draw.Src)
-
-	return croppedResult
+	return resultImg.SubImage(resultBounds)
 }
