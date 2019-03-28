@@ -108,8 +108,11 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 		for i := 0; i < imgBounds.Dy(); i++ {
 			for j := seamPositions[i]; j < resultBounds.Max.X; j++ {
 				resultImg.SetRGBA(j, i, resultImg.RGBAAt(imgBounds.Min.X+j+1, imgBounds.Min.Y+i))
-				energies[i*energyWidth+j] = energies[i*energyWidth+j+1]
 			}
+
+			rowOffset := i * energyWidth
+			offset := rowOffset + seamPositions[i]
+			copy(energies[offset:rowOffset+energyWidth], energies[offset+1:rowOffset+energyWidth])
 		}
 
 		// Update energies along seam
@@ -138,8 +141,7 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 				highBound = resultBounds.Dx() - 1
 			}
 
-			for j := lowBound; j <= highBound; j++ {
-				offset := i*energyWidth + j
+			for offset, j := i*energyWidth+lowBound, lowBound; j <= highBound; offset, j = offset+1, j+1 {
 				northOffset := offset - energyWidth
 
 				minE := accumulatedEnergies[northOffset]
