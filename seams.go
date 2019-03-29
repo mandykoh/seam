@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"sync"
 )
 
 func energy(img *image.RGBA, x, y int) float32 {
@@ -104,16 +105,28 @@ func RemoveVerticalSeams(img image.Image, seamsToRemove int) image.Image {
 
 		resultBounds.Max.X--
 
+		var shiftGroup sync.WaitGroup
+		shiftGroup.Add(imgBounds.Dy())
+
 		// Shift row segments over the seam
 		for i := 0; i < imgBounds.Dy(); i++ {
-			for j := seamPositions[i]; j < resultBounds.Max.X; j++ {
-				resultImg.SetRGBA(j, i, resultImg.RGBAAt(imgBounds.Min.X+j+1, imgBounds.Min.Y+i))
-			}
+			row := i
+			seamPos := seamPositions[i]
 
-			rowOffset := i * energyWidth
-			offset := rowOffset + seamPositions[i]
-			copy(energies[offset:rowOffset+energyWidth], energies[offset+1:rowOffset+energyWidth])
+			go func() {
+				for j := seamPos; j < resultBounds.Max.X; j++ {
+					resultImg.SetRGBA(j, row, resultImg.RGBAAt(imgBounds.Min.X+j+1, imgBounds.Min.Y+row))
+				}
+
+				rowOffset := row * energyWidth
+				offset := rowOffset + seamPos
+				copy(energies[offset:rowOffset+energyWidth], energies[offset+1:rowOffset+energyWidth])
+
+				shiftGroup.Done()
+			}()
 		}
+
+		shiftGroup.Wait()
 
 		// Update energies along seam
 		for i := 0; i < resultBounds.Dy(); i++ {
